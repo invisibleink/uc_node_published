@@ -1,0 +1,58 @@
+<?php
+/**
+ * Implementation of hook_order
+ * 
+ * Using to update advertisment nodes after a transaction has 
+ * been marked as 'complete'
+ */
+function uc_node_published_order($op, &$arg1, $arg2) {
+  switch ($op) {
+  case 'update':
+    if ($arg2 == 'completed') {
+      foreach ($arg1->products as $item) {
+        $node = node_load($item->data['node_checkout_nid']);
+        // make sure we only affect uc_node_checkout related items
+        $uc_node_type = db_result(db_query("SELECT `type` FROM `uc_node_checkout_types` WHERE `type`='$node->type' ORDER BY `product_nid` DESC LIMIT 1;"));
+        if ($uc_node_type) {
+          if ($output) { $output .= ', '; }
+          $output .= '<strong>'. l($node->title, 'node/'. $node->nid) .'</strong>';
+          $type = 'node checkout';
+          $message = 'Published '. $node->title .' (node/'. $node->nid .')';
+          watchdog($type, $message);
+          // publish the node
+          $node->status = 1;
+          node_save($node);
+        }
+      }
+      if ($output) { drupal_set_message($output .' marked as published'); }
+    }
+    if (($arg2 != 'completed') && ($arg1->order_status == 'completed')) {
+        foreach ($arg1->products as $item) {
+          $node = node_load($item->data['node_checkout_nid']);
+          // make sure we only affect uc_node_checkout related items
+          $uc_node_type = db_result(db_query("SELECT `type` FROM `uc_node_checkout_types` WHERE `type`='$node->type' ORDER BY `product_nid` DESC LIMIT 1;"));
+          if ($uc_node_type) {
+            if ($output) { $output .= ', '; }
+            $output .= '<strong>'. l($node->title, 'node/'. $node->nid) .'</strong>';
+            $type = 'node checkout';
+            $message = 'Unpublished '. $node->title .' (node/'. $node->nid .')';
+            watchdog($type, $message);
+            // unpublish the node
+            $node->status = 0;
+            node_save($node);
+          }
+        }
+        if ($output) { drupal_set_message($output .' marked as unpublished'); }
+    }
+    break;
+  case 'delete':
+    foreach($arg1->products as $item) {
+      $node = node_load($item->data['node_checkout_nid']);
+      $uc_node_type = db_result(db_query("SELECT `type` FROM `uc_node_checkout_types` WHERE `type`='$node->type' ORDER BY `product_nid` DESC LIMIT 1;"));
+      if ($uc_node_type) {
+        node_delete($node->nid);
+      }
+    }
+    break;
+  }
+}
