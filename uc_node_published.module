@@ -1,4 +1,7 @@
 <?php
+
+<?
+// $id$
 /**
  * Implementation of hook_order
  * 
@@ -53,6 +56,83 @@ function uc_node_published_order($op, &$arg1, $arg2) {
         node_delete($node->nid);
       }
     }
+    break;
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi
+ *
+ * Gives ability to change order status when a purchased node is
+ * published / unpublished or deleted.
+ */
+function uc_node_published_nodeapi(&$node, $op) {
+  // get the node types uc_node_checkout links
+  $types = array_keys(uc_node_checkout_product_map());
+  if (in_array($node->type, $types)) {
+    switch ($op) {
+    case 'prepare':
+      variable_set('node_ad_status', $node->status);
+      break;
+    case 'update':
+      // unpublishing
+      if ((variable_get('node_ad_status', FALSE) == 1) && ($node->status == 0)) {
+        $sql = "SELECT * FROM  {uc_order_products} WHERE %d LIMIT 1;";
+        $order_details = db_fetch_array(db_query($sql, $node->nid));
+        $order_details['data'] = unserialize($order_details['data']);
+        $order = uc_order_load($order_details['order_id']);
+        $order->order_status = 'moderation';
+        uc_order_save($order);
+        uc_node_published_update_notify($order);
+        $orderlink = l($order_details['order_id'], 'admin/store/orders/'. $order_details['order_id']);
+        drupal_set_message('Order '. $orderlink .' has been put into a moderated state.');
+      }
+      // publishing
+      if ((variable_get('node_ad_status', FALSE) == 0) && ($node->status == 1)) {
+        $sql = "SELECT * FROM  {uc_order_products} WHERE %d LIMIT 1;";
+        $order_details = db_fetch_array(db_query($sql, $node->nid));
+        $order_details['data'] = unserialize($order_details['data']);
+        $order = uc_order_load($order_details['order_id']);
+        $order->order_status = 'completed';
+        uc_order_save($order);
+        uc_node_published_update_notify($order);
+        $orderlink = l($order_details['order_id'], 'admin/store/orders/'. $order_details['order_id']);
+        drupal_set_message('Order '. $orderlink .' has been been marked as '. $order->order_status .'.');
+      }
+      break;
+    case 'delete':
+      $sql = "SELECT * FROM  {uc_order_products} WHERE %d LIMIT 1;";
+      $order_details = db_fetch_array(db_query($sql, $node->nid));
+      $order_details['data'] = unserialize($order_details['data']);
+      $order = uc_order_load($order_details['order_id']);
+      $order->order_status = 'canceled';
+      uc_order_save($order);
+      uc_node_published_update_notify($order);
+      $orderlink = l('Order '. $order_details['order_id'], 'admin/store/orders/'. $order_details['order_id']);
+      drupal_set_message($orderlink .' has been cancelled.');
+    }
+  }
+}
+
+/**
+ * Updates the user(s) of their advertisment's status
+ *
+ * note: first variable must be a stdClass object of the order
+ */
+function uc_node_published_update_notify($order) {
+  $account = user_load($order->uid);
+  $params['account'] = $account;
+  $params['status'] = $order->status;
+  drupal_mail('uc_node_published', 'status_update', $account->mail, user_preferred_language($account), $params);
+} 
+
+function uc_node_published_mail($key, &$message, $params) {
+  $language = $message['language'];
+  $variables = user_mail_tokens($params['account'], $language);
+  switch($key) {
+  case 'status_update':
+    $message['subject'] = t('Order update from '. variable_get('site_name', FALSE) . time());
+    $message['body'] = t($params['account']->name .",\n\nYour advertisment order has had it's status changed to ". $params['status'] ." If you would like more information, please contact the site administrator.");
     break;
   }
 }
