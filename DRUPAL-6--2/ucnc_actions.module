@@ -1,0 +1,122 @@
+<?php
+
+// $Id$
+
+/**
+ * @file
+ * Contains hooks and API functions for the ucnc_actions module
+ */
+
+/**
+ * Implementation of hook_perm
+ */
+function ucnc_actions_perm() {
+  return array('administer node checkout actions');
+}
+
+/**
+ * Implementation of hook_menu
+ */
+function ucnc_actions_menu() {
+  return array(
+    'admin/store/settings/node-checkout-actions' => array(
+      'type' => MENU_NORMAL_ITEM,
+      'title' => t('Node Checkout Actions'),
+      'description' => t('Settings page for Node Checkout Actions.'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('ucnc_actions_form_settings'),
+      'access arguments' => array('administer node checkout actions'),
+      'file' => 'ucnc_actions.form.inc',
+    ),
+    'admin/store/settings/node-checkout-actions/settings' = array(
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+      'title' => ('Settings'),
+      'description' => t('Settings page for Node Checkout Actions'),
+      'weight' => -1,
+    ),
+    'admin/store/settings/node-checkout-actions/new-event' => array(
+      'type' => MENU_LOCAL_TASK,
+      'title' => t('New Event'),
+      'desctiption' => t('Create a new event through the UI'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('ucnc_actions_form_newevent'),
+      'access arguments' => array('administer node checkout actions'),
+      'file' => 'ucnc_actions.form.inc',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_ucnc_actions_action_info
+ */
+function ucnc_actions_ucnc_actions_action_info() {
+  $actions = array(
+    'publish' => array(
+      'title' => t('Publish'),
+      'description' => t('Mark the node as published so it is visible to the general public.'),
+      'file' => 'ucnc_actions.inc',
+    ),
+    'unpublish' => array(
+      'title' => t('Unpublish'),
+      'description' => t('Mark the node as unpublished to hide it from the general public.'),
+      'file' => 'ucnc_actions.inc',      
+    ),
+    'delete' => array(
+      'title' => t('Delete'),
+      'description' => t('Delete the node and all of it\'s content permanently.'),
+      'file' => 'ucnc_actions.inc',
+    ),
+    'promote' => array(
+      'title' => t('Promote'),
+      'description' => t('Promote the node to the front page.'),
+      'file' => 'ucnc_actions.inc',
+    ),
+    'demote' => array(
+      'title' => t('Demote'),
+      'description' => t('Revoke a node\'s promoted status.')
+      'file' => 'ucnc_actions.inc',
+    ),
+  );
+}
+
+/**
+ * Returns an array of all core events handled by ucnc_actions
+ */
+function ucnc_actions_ncevent_info() {
+  // TODO: Find the actual function name that does this and fix up suedo code
+  $statuses = uc_get_statuses();
+  foreach ($statuses as $status) {
+    $events[$status->name] = array(
+      'title' => $status->title,
+      'type' => 'order_status',
+      'weight' => 0,
+      'hook' => 'order',
+      'op' => 'update',
+    )
+  }
+}
+
+/**
+ * This function invokes all hook_ucnc_actions_action_info functions and returns an
+ * array of all the actions available
+ */
+function ucnc_actions_invoke_action_info() {
+  
+}
+
+/**
+ * This function takes context and returns an array of all events which need to be
+ * implemented at that particular time.
+ *
+ * @param $node
+ *  Full node object
+ * @param $order
+ *  Order object
+ * @param $hook
+ *  The name of the hook being implemented, ie - 'nodeapi'
+ * @param $op
+ *  Name of the operation being performed during the hook, ie - 'update'. Defaults to NULL.
+ */
+function ucnc_actions_invoke_events($node, $order, $hook, $op = NULL) {
+  
+}

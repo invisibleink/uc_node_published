@@ -1,0 +1,7 @@
+; $Id$
+
+name = Node Checkout Actions
+description = Allows certain actions to be carried out during the Node Checkout workflow
+core = 6.x
+
+dependencies[] = uc_node_checkout
