@@ -1,4 +1,3 @@
-; $id$
 
 Module: uc_node_published
 Author: Nick Santamaria

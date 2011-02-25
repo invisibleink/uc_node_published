@@ -1,5 +1,4 @@
 <?php
-// $id$
 function uc_node_published_install() {
   $sql = "INSERT INTO  {uc_order_statuses} (`order_status_id`, `title`, `state`, `weight`, `locked` ) VALUES ('moderation', 'In moderation', 'pending', '5', '0');";
   db_query($sql);

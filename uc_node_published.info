@@ -1,4 +1,3 @@
-; $id$
 name = "Node Checkout Published"
 description = "Publishes / unpublishes nodes relating to UC order status"
 core = 6.x
