@@ -1,8 +1,16 @@
-name = "Node Checkout Published"
-description = "Publishes / unpublishes nodes relating to UC order status"
-core = 6.x
-package = Ubercart - extra 
+;$Id: uc_node_published.info,v 1.1.2.3 2010/02/26 03:17:39 kiam Exp $
 
-dependencies[] = text
+name = "Node published"
+description = "Publish / unpublish nodes basing on the Ubercart order status."
+core = 7.x
+package = Ubercart - extra
+
 dependencies[] = uc_cart
 dependencies[] = uc_node_checkout
+
+; Information added by drupal.org packaging script on 2010-11-22
+version = "7.x-1.0-rc4"
+core = 7.x
+project = "uc_node_published"
+datestamp = "1290444068"
+

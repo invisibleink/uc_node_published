@@ -1,7 +1,7 @@
 
 Module: uc_node_published
 Author: Nick Santamaria
-
+Coder update for Drupal 7 by Chesley Adler (invisibleink)
 ***************************************************************
 DESCRIPTION:
 This module provides extra functionality to ubercart and uc_node_checkout.

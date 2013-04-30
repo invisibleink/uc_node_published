@@ -1,5 +1,69 @@
 <?php
+// $Id: uc_node_published.install,v 1.1.2.5 2010/03/01 13:08:53 kiam Exp $
+
+/**
+ * @file
+ * Install, update and uninstall functions for the uc_node_published module.
+ *
+ */
+
+/**
+ * Implements hook_install().
+ */
 function uc_node_published_install() {
-  $sql = "INSERT INTO  {uc_order_statuses} (`order_status_id`, `title`, `state`, `weight`, `locked` ) VALUES ('moderation', 'In moderation', 'pending', '5', '0');";
-  db_query($sql);
+  $row = (object) array(
+    'order_status_id' => 'moderation',
+    'title' => 'In moderation',
+    'state' => 'pending',
+    'weight' => 5,
+    'locked' => 0,
+  );
+
+  $bool = db_query_range("SELECT 1 FROM {uc_order_statuses} WHERE order_status_id = :order_status_id AND state = :state", 1, 1,  array(':order_status_id' => $row->order_status_id, ':state' => $row->state))->fetchField();
+
+  drupal_write_record('uc_order_statuses', $row, $bool ? 'order_status_id' : array());
+}
+
+/**
+ * Implements hook_update_N().
+ */
+function uc_node_published_update_6100() {
+  variable_del('node_ad_status');
+
+  // hook_update_N() no longer returns a $ret array. Instead, return
+  // nothing or a translated string indicating the update ran successfully.
+  // See http://drupal.org/node/224333#update_sql.
+  return t('TODO Add a descriptive string here to show in the UI.') /* array(
+  'success' => TRUE,
+  'query' => 'Updated the module settings',
+) */;
+}
+
+/**
+ * Implements hook_update_N().
+ */
+function uc_node_published_update_6102() {
+  $ret = array();
+
+  if (!variable_get('menu_rebuild_needed', FALSE)) {
+    variable_set('menu_rebuild_needed', TRUE);
+
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => 'Updated the module menus',
+    );
+  }
+
+  // hook_update_N() no longer returns a $ret array. Instead, return
+  // nothing or a translated string indicating the update ran successfully.
+  // See http://drupal.org/node/224333#update_sql.
+  return t('TODO Add a descriptive string here to show in the UI.') /* $ret */;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_node_published_uninstall() {
+  variable_del('uc_node_published_subject');
+  variable_del('uc_node_published_body');
 }

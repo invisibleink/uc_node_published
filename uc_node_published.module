@@ -1,135 +1,268 @@
 <?php
+// $Id: uc_node_published.module,v 1.2.2.8 2010/03/05 10:51:47 kiam Exp $
+
 /**
- * Implementation of hook_order
- * 
- * Using to update advertisment nodes after a transaction has 
- * been marked as 'complete'
+ * @file
+ * Publishes / unpublishes nodes basing on the Ubercart order status.
  */
-function uc_node_published_order($op, &$arg1, $arg2) {
-  switch ($op) {
-  case 'update':
-    if ($arg2 == 'completed') {
-      foreach ($arg1->products as $item) {
-        $node = node_load($item->data['node_checkout_nid']);
-        // make sure we only affect uc_node_checkout related items
-        $uc_node_type = db_result(db_query("SELECT `type` FROM `uc_node_checkout_types` WHERE `type`='$node->type' ORDER BY `product_nid` DESC LIMIT 1;"));
-        if ($uc_node_type) {
-          if ($output) { $output .= ', '; }
-          $output .= '<strong>'. l($node->title, 'node/'. $node->nid) .'</strong>';
-          $type = 'node checkout';
-          $message = 'Published '. $node->title .' (node/'. $node->nid .')';
-          watchdog($type, $message);
-          // publish the node
-          $node->status = 1;
-          node_save($node);
-        }
+
+/**
+ * Implements hook_mail().
+ */
+function uc_node_published_mail($key, &$message, $params) {
+  $default = array(
+    'body' => "!username,\n\nYour advertisment order status has been changed to !status on !date. If you would like more information, please contact the site administrator.",
+    'subject' => 'Order update from !site - !uri',
+  );
+  $tokens = user_mail_tokens($params['account'], $message['language']);
+  $tokens['!status'] = $params['status'];
+
+  if ($key == 'status_update') {
+    $message['subject'] = _uc_node_published_translate(
+      variable_get('uc_node_published_subject', $default['subject']),
+      $tokens
+    );
+
+    $message['body'] = drupal_html_to_text(
+      _uc_node_published_translate(
+        variable_get('uc_node_published_body', $default['body']),
+        $tokens
+      )
+    );
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function uc_node_published_menu() {
+  $items = array();
+
+  $items['admin/store/settings/node-published'] = array(
+    'title' => 'Node published settings',
+    'description' => 'Publish / unpublish nodes basing on the Ubercart order status.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_node_published_settings'),
+    'access arguments' => array('administer node published'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+function uc_node_published_node_load($nodes, $types) {
+  $nc_types = array_keys(uc_node_checkout_product_map());
+  foreach ($types as $type) {
+    if (in_array($type, $nc_types)) {
+      foreach ($nodes as $node) {
+        $nodes[$node->nid]->previous_status = $node->status;
       }
-      if ($output) { drupal_set_message($output .' marked as published'); }
+    } else {
+      return;
     }
-    if (($arg2 != 'completed') && ($arg1->order_status == 'completed')) {
-        foreach ($arg1->products as $item) {
+  }
+}
+
+/**
+ * Implements hook_order().
+ */
+function uc_node_published_uc_order($op, $order, $arg2) {
+  switch ($op) {
+    case 'update':
+      if ($arg2 == 'completed') {
+        foreach ($order->products as $item) {
           $node = node_load($item->data['node_checkout_nid']);
-          // make sure we only affect uc_node_checkout related items
-          $uc_node_type = db_result(db_query("SELECT `type` FROM `uc_node_checkout_types` WHERE `type`='$node->type' ORDER BY `product_nid` DESC LIMIT 1;"));
-          if ($uc_node_type) {
-            if ($output) { $output .= ', '; }
-            $output .= '<strong>'. l($node->title, 'node/'. $node->nid) .'</strong>';
-            $type = 'node checkout';
-            $message = 'Unpublished '. $node->title .' (node/'. $node->nid .')';
-            watchdog($type, $message);
-            // unpublish the node
-            $node->status = 0;
+          $types = array_keys(uc_node_checkout_product_map());
+dsm($order);
+dsm($node);
+          // Make sure we only affect uc_node_checkout related items.
+          if (in_array($node->type, $types)) {
+            // Publish the node.
+            $node->status = 1;
             node_save($node);
+
+            watchdog(
+              'uc_node_published', 'Set @type %title to published.',
+              array(
+              '@type' => node_type_get_name($node),
+              '%title' => $node->title,
+            )
+            );
           }
         }
-        if ($output) { drupal_set_message($output .' marked as unpublished'); }
-    }
-    break;
-  case 'delete':
-    foreach($arg1->products as $item) {
-      $node = node_load($item->data['node_checkout_nid']);
-      $uc_node_type = db_result(db_query("SELECT `type` FROM `uc_node_checkout_types` WHERE `type`='$node->type' ORDER BY `product_nid` DESC LIMIT 1;"));
-      if ($uc_node_type) {
-        node_delete($node->nid);
       }
-    }
-    break;
-  }
-}
+      elseif (($arg2 != 'completed') && ($arg1->order_status == 'completed')) {
+        foreach ($order->products as $item) {
+          $node = node_load($item->data['node_checkout_nid']);
+          $types = array_keys(uc_node_checkout_product_map());
 
-/**
- * Implementation of hook_nodeapi
- *
- * Gives ability to change order status when a purchased node is
- * published / unpublished or deleted.
- */
-function uc_node_published_nodeapi(&$node, $op) {
-  // get the node types uc_node_checkout links
-  $types = array_keys(uc_node_checkout_product_map());
-  if (in_array($node->type, $types)) {
-    switch ($op) {
-    case 'prepare':
-      variable_set('node_ad_status', $node->status);
-      break;
-    case 'update':
-      // unpublishing
-      if ((variable_get('node_ad_status', FALSE) == 1) && ($node->status == 0)) {
-        $sql = "SELECT * FROM  {uc_order_products} WHERE %d LIMIT 1;";
-        $order_details = db_fetch_array(db_query($sql, $node->nid));
-        $order_details['data'] = unserialize($order_details['data']);
-        $order = uc_order_load($order_details['order_id']);
-        $order->order_status = 'moderation';
-        uc_order_save($order);
-        uc_node_published_update_notify($order);
-        $orderlink = l($order_details['order_id'], 'admin/store/orders/'. $order_details['order_id']);
-        drupal_set_message('Order '. $orderlink .' has been put into a moderated state.');
-      }
-      // publishing
-      if ((variable_get('node_ad_status', FALSE) == 0) && ($node->status == 1)) {
-        $sql = "SELECT * FROM  {uc_order_products} WHERE %d LIMIT 1;";
-        $order_details = db_fetch_array(db_query($sql, $node->nid));
-        $order_details['data'] = unserialize($order_details['data']);
-        $order = uc_order_load($order_details['order_id']);
-        $order->order_status = 'completed';
-        uc_order_save($order);
-        uc_node_published_update_notify($order);
-        $orderlink = l($order_details['order_id'], 'admin/store/orders/'. $order_details['order_id']);
-        drupal_set_message('Order '. $orderlink .' has been been marked as '. $order->order_status .'.');
+          // Make sure we only affect uc_node_checkout related items.
+          if (in_array($node->type, $types)) {
+            // Unpublish the node.
+            $node->status = 0;
+            node_save($node);
+
+            watchdog(
+              'uc_node_published', 'Set @type %title to unpublished.',
+              array(
+              '@type' => node_type_get_name($node),
+              '%title' => $node->title,
+            )
+            );
+          }
+        }
       }
       break;
+
     case 'delete':
-      $sql = "SELECT * FROM  {uc_order_products} WHERE %d LIMIT 1;";
-      $order_details = db_fetch_array(db_query($sql, $node->nid));
-      $order_details['data'] = unserialize($order_details['data']);
-      $order = uc_order_load($order_details['order_id']);
-      $order->order_status = 'canceled';
-      uc_order_save($order);
-      uc_node_published_update_notify($order);
-      $orderlink = l('Order '. $order_details['order_id'], 'admin/store/orders/'. $order_details['order_id']);
-      drupal_set_message($orderlink .' has been cancelled.');
-    }
+      $search_wipe = function_exists('search_wipe');
+
+      foreach ($order->products as $item) {
+        $node = node_load($item->data['node_checkout_nid']);
+        $types = array_keys(uc_node_checkout_product_map());
+
+        // Make sure we only affect uc_node_checkout related items.
+        if (in_array($node->type, $types) && node_access('delete', $node)) {
+
+          db_delete('node')->condition('nid', $node->nid)->execute();
+
+          db_delete('node_revisions')->condition('nid', $node->nid)->execute();
+
+          // Call the node-specific callback.
+          node_invoke($node, 'delete');
+          module_invoke_all('node_delete', $node);
+
+          // Remove this node from the search index if needed.
+          if ($search_wipe) {
+            search_wipe($node->nid, 'node');
+          }
+
+          watchdog(
+            'uc_node_published', '@type: deleted %title.',
+            array(
+            '@type' => $node->type,
+            '%title' => $node->title,
+          )
+          );
+        }
+      }
+      // Clear the page and block caches.
+      cache_clear_all();
+      break;
   }
 }
 
 /**
- * Updates the user(s) of their advertisment's status
- *
- * note: first variable must be a stdClass object of the order
+ * Implements hook_permission().
+ */
+function uc_node_published_permission() {
+  return array(
+    'administer node published' => array(
+      'title' => t('administer node published'),
+      'description' => t('TODO Add a description for \'administer node published\''),
+    ),
+  );
+}
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function uc_node_published_settings($form, &$form_state) {
+  global $language, $user;
+
+  $default = array(
+    'body' => "!username,\n\nYour advertisment order status has been changed to !status on !date. If you would like more information, please contact the site administrator.",
+    'subject' => 'Order update from !site - !uri',
+  );
+  $form = array();
+  
+  $tokens = (user_mail_tokens($replacements, $data, $options));
+  dsm($tokens);
+  // $tokens[] = '!status';
+  // 
+  // $email_token_help = t('Available variables are:') . ' ' . implode(', ', $tokens) . '.';
+  // 
+  // $form['email'] = array(
+  //   '#type' => 'fieldset',
+  //   '#title' => t('User e-mail settings'),
+  //   '#description' => t('Customize e-mail messages sent to users when an order is updated.') . ' ' . $email_token_help,
+  // );
+  // 
+  // $form['email']['uc_node_published_subject'] = array(
+  //   '#type' => 'textfield',
+  //   '#title' => t('Subject'),
+  //   '#default_value' => variable_get('uc_node_published_subject', $default['subject']),
+  // );
+  // 
+  // $form['email']['body'] = array(
+  //   '#type' => 'textarea',
+  //   '#title' => t('Body'),
+  //   '#default_value' => variable_get('uc_node_published_body', $default['body']),
+  // );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Notify users of their advertisment's status.
  */
 function uc_node_published_update_notify($order) {
+  // TODO Convert "user_load" to "user_load_multiple" if "$order->uid" is other than a uid.
+  // To return a single user object, wrap "user_load_multiple" with "array_shift" or equivalent.
+  // Example: array_shift(user_load_multiple(array(), $order->uid))
   $account = user_load($order->uid);
+  $params = array();
+
   $params['account'] = $account;
   $params['status'] = $order->status;
-  drupal_mail('uc_node_published', 'status_update', $account->mail, user_preferred_language($account), $params);
-} 
 
-function uc_node_published_mail($key, &$message, $params) {
-  $language = $message['language'];
-  $variables = user_mail_tokens($params['account'], $language);
-  switch($key) {
-  case 'status_update':
-    $message['subject'] = t('Order update from '. variable_get('site_name', FALSE) . time());
-    $message['body'] = t($params['account']->name .",\n\nYour advertisment order has had it's status changed to ". $params['status'] ." If you would like more information, please contact the site administrator.");
-    break;
+  drupal_mail(
+    'uc_node_published', 'status_update',
+    $account->mail, user_preferred_language($account),
+    $params
+  );
+}
+
+/**
+ * Translate the string passed as argument.
+ */
+function _uc_node_published_translate($string, $args = array()) {
+  global $language;
+  static $custom_strings;
+
+  $langcode = $language->language;
+
+  if (!isset($custom_strings[$langcode])) {
+    $custom_strings[$langcode] = variable_get('locale_custom_strings_' . $langcode, array());
+  }
+
+  if (isset($custom_strings[$langcode][$string])) {
+    $string = $custom_strings[$langcode][$string];
+  }
+
+  if (empty($args)) {
+    return $string;
+  }
+  else {
+    // Transform arguments before inserting them.
+    foreach ($args as $key => $value) {
+      switch ($key[0]) {
+        case '@':
+          // Escaped only.
+          $args[$key] = check_plain($value);
+          break;
+
+        case '%':
+        default:
+          // Escaped and placeholder.
+          $args[$key] = drupal_placeholder($value);
+          break;
+
+        case '!':
+          // Pass-through.
+      }
+    }
+    return strtr($string, $args);
   }
 }
