@@ -73,8 +73,6 @@ function uc_node_published_uc_order($op, $order, $arg2) {
         foreach ($order->products as $item) {
           $node = node_load($item->data['node_checkout_nid']);
           $types = array_keys(uc_node_checkout_product_map());
-dsm($order);
-dsm($node);
           // Make sure we only affect uc_node_checkout related items.
           if (in_array($node->type, $types)) {
             // Publish the node.
@@ -91,7 +89,7 @@ dsm($node);
           }
         }
       }
-      elseif (($arg2 != 'completed') && ($arg1->order_status == 'completed')) {
+      elseif (($arg2 != 'completed') && ($order->order_status == 'completed')) {
         foreach ($order->products as $item) {
           $node = node_load($item->data['node_checkout_nid']);
           $types = array_keys(uc_node_checkout_product_map());
