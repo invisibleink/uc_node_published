@@ -175,8 +175,7 @@ function uc_node_published_settings($form, &$form_state) {
   );
   $form = array();
   
-  $tokens = (user_mail_tokens($replacements, $data, $options));
-  dsm($tokens);
+  // $tokens = (user_mail_tokens($replacements, $data, $options));
   // $tokens[] = '!status';
   // 
   // $email_token_help = t('Available variables are:') . ' ' . implode(', ', $tokens) . '.';
