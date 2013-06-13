@@ -124,7 +124,7 @@ function uc_node_published_uc_order($op, $order, $arg2) {
 
           db_delete('node')->condition('nid', $node->nid)->execute();
 
-          db_delete('node_revisions')->condition('nid', $node->nid)->execute();
+          db_delete('node_revision')->condition('nid', $node->nid)->execute();
 
           // Call the node-specific callback.
           node_invoke($node, 'delete');
