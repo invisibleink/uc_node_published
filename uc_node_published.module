@@ -122,13 +122,14 @@ function uc_node_published_uc_order($op, $order, $arg2) {
         // Make sure we only affect uc_node_checkout related items.
         if (in_array($node->type, $types) && node_access('delete', $node)) {
 
-          db_delete('node')->condition('nid', $node->nid)->execute();
+          //db_delete('node')->condition('nid', $node->nid)->execute();
+          node_delete($node->nid);
 
-          db_delete('node_revision')->condition('nid', $node->nid)->execute();
+          //db_delete('node_revision')->condition('nid', $node->nid)->execute();
 
           // Call the node-specific callback.
-          node_invoke($node, 'delete');
-          module_invoke_all('node_delete', $node);
+          // node_invoke($node, 'delete');
+          // module_invoke_all('node_delete', $node);
 
           // Remove this node from the search index if needed.
           if ($search_wipe) {
