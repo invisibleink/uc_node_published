@@ -122,8 +122,8 @@ function uc_node_published_uc_order($op, $order, $arg2) {
         // Make sure we only affect uc_node_checkout related items.
         if (in_array($node->type, $types) && node_access('delete', $node)) {
 
-          //db_delete('node')->condition('nid', $node->nid)->execute();
-          node_delete($node->nid);
+          // node_delete($node->nid);
+          drupal_set_message(t('The deleted order contained a purchased node. Visit <a href="@url"> %title </a> to check status.', array('@url' => url('node/' . $node->nid), '%title' => $node->title)), 'status');
 
           //db_delete('node_revision')->condition('nid', $node->nid)->execute();
 
@@ -135,12 +135,13 @@ function uc_node_published_uc_order($op, $order, $arg2) {
           if ($search_wipe) {
             search_wipe($node->nid, 'node');
           }
-
+          
           watchdog(
-            'uc_node_published', '@type: deleted %title.',
+            'uc_node_published', '@type: order deletion orphaned <a href="@url">%title.</a>',
             array(
             '@type' => $node->type,
             '%title' => $node->title,
+            '@url' => url('node/' . $node->nid),
           )
           );
         }
